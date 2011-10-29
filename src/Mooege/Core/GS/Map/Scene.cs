@@ -22,6 +22,7 @@ using Mooege.Common.Helpers;
 using Mooege.Common.MPQ;
 using Mooege.Common.MPQ.FileFormats.Types;
 using Mooege.Core.GS.Actors;
+using Mooege.Core.GS.Actors.Implementations;
 using Mooege.Core.GS.Common.Types.Collusion;
 using Mooege.Core.GS.Common.Types.Math;
 using Mooege.Core.GS.Common.Types.SNO;
@@ -188,57 +189,73 @@ namespace Mooege.Core.GS.Map
                     foreach (var tag in marker.TagMap.TagMapEntries)
                         tags.Add(tag.Int1, tag);
 
-                    Asset actorAsset = null;
-                    Mooege.Common.MPQ.FileFormats.Actor actorData = null;
+                    if (marker.SNOName.Group != SNOGroup.Actor) continue;
                     if (!MPQStorage.Data.Assets[SNOGroup.Actor].ContainsKey(marker.SNOName.SNOId)) continue;
 
-                    actorAsset = MPQStorage.Data.Assets[SNOGroup.Actor][marker.SNOName.SNOId];
-                    actorData = actorAsset.Data as Mooege.Common.MPQ.FileFormats.Actor;
-
                     // Since we are not loading all actors, make sure to load portals and portal destination actors - fix this /raist.
-                    if (RandomHelper.Next(100) > 90 || tags.ContainsKey((int)MarkerTagTypes.DestinationWorld) || tags.ContainsKey((int)MarkerTagTypes.ActorTag))
-                    {
-                        if (marker.SNOName.Group == SNOGroup.Actor)
+                    if ( ActorFactory.HasHandler(marker.SNOName.SNOId) 
+                         || tags.ContainsKey((int)MarkerTagTypes.DestinationWorld) 
+                         || tags.ContainsKey((int)MarkerTagTypes.ActorTag))
+                         //|| RandomHelper.Next(100) > 90    
+                    {                       
+                        Actor newActor = null;
+
+                        // This is ugly, because the ActorFactory does not differentiate between Gizmos, so when creating a portal, we have to do it manually
+                        if (tags.ContainsKey((int)MarkerTagTypes.DestinationWorld))
                         {
-                            Actor newActor = null;
+                            newActor = new Portal(this.World);
+                            newActor.ActorSNO = marker.SNOName.SNOId;
+                            newActor.Field8 = marker.SNOName.SNOId;
+                            newActor.Position = marker.PRTransform.Vector3D + this.Position;
+                            (newActor as Portal).Destination.WorldSNO = tags[(int)MarkerTagTypes.DestinationWorld].Int2;
 
-                            // This is ugly, because the ActorFactory does not differentiate between Gizmos, so when creating a portal, we have to do it manually
-                            if (tags.ContainsKey((int)MarkerTagTypes.DestinationWorld))
-                            {
-                                newActor = new Portal(this.World);
-                                newActor.ActorSNO = marker.SNOName.SNOId;
-                                newActor.Field8 = marker.SNOName.SNOId;
-                                newActor.Position = marker.PRTransform.Vector3D + this.Position;
-                                (newActor as Portal).Destination.WorldSNO = tags[(int)MarkerTagTypes.DestinationWorld].Int2;
+                            if (tags.ContainsKey((int)MarkerTagTypes.DestinationLevelArea))
+                                (newActor as Portal).Destination.DestLevelAreaSNO = tags[(int)MarkerTagTypes.DestinationLevelArea].Int2;
 
-                                if (tags.ContainsKey((int)MarkerTagTypes.DestinationLevelArea))
-                                    (newActor as Portal).Destination.DestLevelAreaSNO = tags[(int)MarkerTagTypes.DestinationLevelArea].Int2;
-
-                                if (tags.ContainsKey((int)MarkerTagTypes.DestinationActorTag))
-                                    (newActor as Portal).Destination.StartingPointActorTag = tags[(int)MarkerTagTypes.DestinationActorTag].Int2;
-                                else
-                                    Logger.Warn("Found portal {0} in scene {1} without target location actor", newActor.ActorSNO, this.SceneSNO);
-                            }
+                            if (tags.ContainsKey((int)MarkerTagTypes.DestinationActorTag))
+                                (newActor as Portal).Destination.StartingPointActorTag = tags[(int)MarkerTagTypes.DestinationActorTag].Int2;
                             else
-                                newActor = ActorFactory.Create(marker.SNOName.SNOId, this.World, marker.PRTransform.Vector3D + this.Position);
+                                Logger.Warn("Found portal {0} in scene {1} without target location actor", newActor.ActorSNO, this.SceneSNO);
+                        }
+                        else
+                            newActor = ActorFactory.Create(marker.SNOName.SNOId, this.World, marker.PRTransform.Vector3D + this.Position);
 
-                            if (newActor != null)
+                        if (newActor != null)
+                        {
+                            if (tags.ContainsKey((int)MarkerTagTypes.ActorTag))
+                                newActor.Tag = tags[(int)MarkerTagTypes.ActorTag].Int2;
+
+                            if (tags.ContainsKey((int)MarkerTagTypes.Scale))
+                                newActor.Scale = tags[(int)MarkerTagTypes.Scale].Float0;
+
+                            newActor.RotationAmount = marker.PRTransform.Quaternion.W;
+                            newActor.RotationAxis = marker.PRTransform.Quaternion.Vector3D;
+
+                            System.Diagnostics.Debug.Assert(newActor.ActorSNO != -1);
+
+                            if (newActor is Waypoint) //TODO Do it in waypoint construct once grid is done /fasbat
                             {
-                                if (tags.ContainsKey((int) MarkerTagTypes.ActorTag))
-                                    newActor.Tag = tags[(int) MarkerTagTypes.ActorTag].Int2;
-
-                                if (tags.ContainsKey((int) MarkerTagTypes.Scale))
-                                    newActor.Scale = tags[(int) MarkerTagTypes.Scale].Float0;
-
-                                newActor.RotationAmount = marker.PRTransform.Quaternion.W;
-                                newActor.RotationAxis = marker.PRTransform.Quaternion.Vector3D;
-
-                                System.Diagnostics.Debug.Assert(newActor.ActorSNO != -1);
-
-                                if (!(newActor is Portal))
-                                    this.World.Enter(newActor);
+                                //TODO this is just act 1 ! /fasbat
+                                var actData = (Mooege.Common.MPQ.FileFormats.Act)MPQStorage.Data.Assets[SNOGroup.Act][70015].Data;
+                                var wayPointInfo = actData.WayPointInfo;
+                                for (int i = 0; i < actData.WayPointInfo.Length; i++)
+                                {
+                                    if (wayPointInfo[i].SNOLevelArea == -1)
+                                        continue;
+                                    var levelAreaFile = MPQStorage.Data.Assets[SNOGroup.LevelArea][wayPointInfo[i].SNOLevelArea];
+                                    var levelArea = (Mooege.Common.MPQ.FileFormats.LevelArea)levelAreaFile.Data;
+                                    foreach (var area in Specification.SNOLevelAreas)
+                                    {
+                                        if (wayPointInfo[i].SNOWorld == World.WorldSNO && wayPointInfo[i].SNOLevelArea == area)
+                                        {
+                                            Waypoint.Waypoints[i] = newActor as Waypoint;
+                                        }
+                                    }
+                                }
                             }
-                            // else Logger.Warn("No implementation for ActorType of actor {0}", marker.SNOName.SNOId);
+
+                            if (!(newActor is Portal))
+                                this.World.Enter(newActor);
                         }
                     }
 
