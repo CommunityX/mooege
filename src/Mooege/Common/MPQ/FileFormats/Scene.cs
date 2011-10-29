@@ -34,9 +34,11 @@ namespace Mooege.Common.MPQ.FileFormats
         public AABB AABBBounds { get; private set; }
         public AABB AABBMarketSetBounds { get; private set; }
         public NavMeshDef NavMesh { get; private set; }
+        public List<int> Exclusions { get; private set; }
+        public List<int> Inclusions { get; private set; }
         public List<int> MarkerSets = new List<int>();
         public string LookLink { get; private set; }
-        public MsgTriggeredEvent MsgTriggeredEvent { get; private set; }
+        public List<MsgTriggeredEvent> MsgTriggeredEvent { get; private set; }
         public int Int1 { get; private set; }
         public NavZoneDef NavZone { get; private set; }
 
@@ -44,27 +46,19 @@ namespace Mooege.Common.MPQ.FileFormats
         {
             var stream = file.Open();
             this.Header = new Header(stream);
-
             Int0 = stream.ReadValueS32();
             this.AABBBounds = new AABB(stream);
             this.AABBMarketSetBounds = new AABB(stream);
-
-            this.NavMesh = new NavMeshDef(stream); //load NavMeshDef
-            var exclusions = stream.GetSerializedDataPointer();
-
+            this.NavMesh = new NavMeshDef(stream);
+            this.Exclusions = stream.ReadSerializedInts();
             stream.Position += (14 * 4);
-            var inclusions = stream.GetSerializedDataPointer();
-
+            this.Inclusions = stream.ReadSerializedInts();
             stream.Position += (14 * 4);
             this.MarkerSets = stream.ReadSerializedInts();
-
             stream.Position += (14 * 4);
             this.LookLink = stream.ReadString(64, true);
-
-            // Maybe this is a list/array - DarkLotus
-            this.MsgTriggeredEvent = stream.ReadSerializedItem<MsgTriggeredEvent>();
+            this.MsgTriggeredEvent = stream.ReadSerializedData<MsgTriggeredEvent>();
             this.Int1 = stream.ReadValueS32();
-
             stream.Position += (3 * 4);
             this.NavZone = new NavZoneDef(stream);
 
@@ -89,7 +83,6 @@ namespace Mooege.Common.MPQ.FileFormats
                 this.NavMeshSquareCount = stream.ReadValueS32();
                 this.Float0 = stream.ReadValueF32();
                 this.Squares = stream.ReadSerializedData<NavMeshSquare>(this.NavMeshSquareCount);
-
                 stream.Position += (3 * 4);
                 this.Filename = stream.ReadString(256, true);
             }

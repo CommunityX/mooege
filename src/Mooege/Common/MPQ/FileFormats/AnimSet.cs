@@ -29,6 +29,10 @@ namespace Mooege.Common.MPQ.FileFormats
     public class AnimSet : FileFormat
     {
         public Header Header { get; private set; }
+        public int SNOParentAnimSet { get; private set; }
+        public List<TagMap> TagMapAnimDefault { get; private set; }
+        public AnimSetTagMap[] AnimSetTagMaps { get; private set; }
+
         public int NumberOfAnimations { get; private set; }
         public List<AnimationDef> Animations = new List<AnimationDef>();
 
@@ -36,7 +40,14 @@ namespace Mooege.Common.MPQ.FileFormats
         {
             var stream = file.Open();
             this.Header = new Header(stream);
+            this.SNOParentAnimSet = stream.ReadValueS32();
+            this.TagMapAnimDefault = stream.ReadSerializedData<TagMap>();
+            stream.Position += 8;
+            this.AnimSetTagMaps = new AnimSetTagMap[19];
+            for (int i = 0; i < 19; i++)
+                this.AnimSetTagMaps[i] = new AnimSetTagMap(stream);
 
+            //original stuff left below to prevent any possible breaks in existing actor animations - Egris
             stream.Position = 352;
             this.NumberOfAnimations = stream.ReadValueS32();
             for (int i = 0; i < this.NumberOfAnimations; i++)
@@ -87,5 +98,25 @@ namespace Mooege.Common.MPQ.FileFormats
             public int TagID;
             public int AnimationSNO;
         }
+
+        public class AnimSetTagMap : ISerializableData
+        {
+            public List<TagMap> TagMap { get; private set; }
+
+            public AnimSetTagMap() {}
+
+            public AnimSetTagMap(MpqFileStream stream)
+            {
+                this.TagMap = stream.ReadSerializedData<TagMap>();
+                stream.Position += 8;
+            }
+
+            public void Read(MpqFileStream stream)
+            {
+                this.TagMap = stream.ReadSerializedData<TagMap>();
+                stream.Position += 8;
+            }
+        }
+
     }
 }
