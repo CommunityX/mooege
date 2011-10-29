@@ -17,6 +17,7 @@
  */
 
 using System;
+using System.Linq;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Reflection;
@@ -109,6 +110,17 @@ namespace Mooege.Common.MPQ
 
             var parser = this.Parsers[asset.Group]; // get the type the asset's parser.
             var file = this.FileSystem.FindFile(asset.FileName); // get the asset file.
+
+            // if file is in any of the follow groups, try to load the original version
+            if (new SNOGroup[] {SNOGroup.TreasureClass, SNOGroup.TimedEvent, SNOGroup.ConversationList}.Contains(asset.Group))
+            {
+                foreach (CrystalMpq.MpqArchive archive in this.FileSystem.Archives.Reverse()) //search mpqs starting from base
+                {
+                    file = archive.FindFile(asset.FileName);
+                    if (file != null)
+                        break;
+                }
+            }
             if (file == null || file.Size < 10) return asset; // if it's empty, give up again.
 
             this._tasks.Add(new Task(() => asset.RunParser(parser, file))); // add it to our task list, so we can parse them concurrently.
