@@ -16,7 +16,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-using Mooege.Core.GS.Common.Types.Math;
+using System.Collections.Generic;
+using Mooege.Common.MPQ.FileFormats.Types;
 using Mooege.Core.GS.Map;
 
 namespace Mooege.Core.GS.Actors
@@ -25,16 +26,13 @@ namespace Mooege.Core.GS.Actors
     {
         public override ActorType ActorType { get { return ActorType.Gizmo; } }
 
-        public Gizmo(World world, int actorSNO, Vector3D position)
-            : base(world, world.NewActorID)
+        public Gizmo(World world, int snoId, Dictionary<int, TagMapEntry> tags)
+            : base(world, snoId, tags)
         {
-            this.ActorSNO = actorSNO;
             this.Field2 = 16;
             this.Field3 = 0x0;
             this.Field7 = 0x00000001;
-            this.Field8 = this.ActorSNO;
-            this.Scale = 1.35f;
-            this.Position.Set(position);
+            this.Field8 = this.SNOId;
         }
     }
 }

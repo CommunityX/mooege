@@ -1,4 +1,4 @@
-﻿/*
+﻿﻿/*
  * Copyright (C) 2011 mooege project
  *
  * This program is free software; you can redistribute it and/or modify
@@ -16,35 +16,29 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-using System;
-using System.Data.SQLite;
-using Mooege.Common;
+using System.Collections.Generic;
+using Mooege.Common.MPQ.FileFormats.Types;
+using Mooege.Core.GS.Map;
+using Mooege.Core.GS.Markers;
 
-namespace Mooege.Core.Common.Storage
+namespace Mooege.Core.GS.Actors.Implementations
 {
-    // just a quick hack - not to be meant a final layer.
-    public static class GameDataDBManager
+    [HandledSNO((int)MarkerTypes.Start_Location_0, (int)MarkerTypes.Start_Location_Team_0)]
+    public class StartingPoint : Gizmo
     {
-        public static SQLiteConnection Connection { get; private set; }
-        public static readonly Logger Logger = LogManager.CreateLogger();
+        public int TargetId { get; private set; }
 
-        static GameDataDBManager()
+        public StartingPoint(World world, int snoId, Dictionary<int, TagMapEntry> tags)
+            : base(world, snoId, tags)
         {
-            Connect();
         }
 
-        private static void Connect()
+        protected override void ReadTags()
         {
-            try
-            {
-                Connection = new SQLiteConnection(String.Format("Data Source={0}/gamedata.db", Config.Instance.Root));
-                Connection.Open();
-            }
-            catch (Exception e)
-            {
-                Logger.FatalException(e, "Connect()");
-            }
+            if (this.Tags == null) return;
+
+            if (this.Tags.ContainsKey((int)MarkerTagTypes.ActorTag))
+                this.TargetId = this.Tags[(int)MarkerTagTypes.ActorTag].Int2;
         }
     }
 }
-

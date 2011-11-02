@@ -16,35 +16,46 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-﻿using Mooege.Common;
-using Mooege.Core.GS.Actors;
-﻿using Mooege.Core.GS.Common.Types.Math;
-﻿using Mooege.Net.GS.Message;
-﻿using Mooege.Net.GS.Message.Definitions.Misc;
-﻿using Mooege.Net.GS.Message.Definitions.World;
-﻿using Mooege.Net.GS.Message.Fields;
+using System.Collections.Generic;
+using Mooege.Common;
+using Mooege.Common.MPQ.FileFormats.Types;
+using Mooege.Core.GS.Map;
+using Mooege.Core.GS.Markers;
+using Mooege.Core.GS.Players;
+using Mooege.Net.GS.Message;
+using Mooege.Net.GS.Message.Definitions.Misc;
+using Mooege.Net.GS.Message.Definitions.World;
+using Mooege.Net.GS.Message.Fields;
 using Mooege.Net.GS.Message.Definitions.Map;
 using Mooege.Common.Helpers;
 
-namespace Mooege.Core.GS.Map
+namespace Mooege.Core.GS.Actors
 {
     public class Portal : Actor
     {
         static readonly Logger Logger = LogManager.CreateLogger();
 
-        public override ActorType ActorType { get { return ActorType.Portal; } }
+        public override ActorType ActorType { get { return ActorType.Gizmo; } }
 
         public ResolvedPortalDestination Destination { get; private set; }
-        //public Vector3D TargetPos;
 
-        public Portal(World world)
-            : base(world, world.NewActorID)
+        public Portal(World world, int snoId, Dictionary<int, TagMapEntry> tags)
+            : base(world, snoId, tags)
         {
-            this.Destination = new ResolvedPortalDestination();
-            this.Destination.WorldSNO = -1;
-            this.Destination.DestLevelAreaSNO = -1;
-            //this.TargetPos = new Vector3D();
+            this.Destination = new ResolvedPortalDestination
+            {
+                WorldSNO = tags[(int)MarkerTagTypes.DestinationWorld].Int2,
+            };
 
+            if (tags.ContainsKey((int)MarkerTagTypes.DestinationLevelArea))
+                this.Destination.DestLevelAreaSNO = tags[(int)MarkerTagTypes.DestinationLevelArea].Int2;
+
+            if (tags.ContainsKey((int)MarkerTagTypes.DestinationActorTag))
+                this.Destination.StartingPointActorTag = tags[(int)MarkerTagTypes.DestinationActorTag].Int2;
+            else
+                Logger.Warn("Found portal {0}without target location actor", this.SNOId);
+
+            this.Field8 = this.SNOId;
             this.Field2 = 16;
             this.Field3 = 0;
             this.CollFlags = 0x00000001;
@@ -57,11 +68,9 @@ namespace Mooege.Core.GS.Map
             this.Attributes[GameAttribute.Hitpoints_Cur] = 0.0009994507f;
             this.Attributes[GameAttribute.TeamID] = 1;
             this.Attributes[GameAttribute.Level] = 1;
-
-            this.World.Enter(this); // Enter only once all fields have been initialized to prevent a run condition
         }
 
-        public override bool Reveal(Mooege.Core.GS.Player.Player player)
+        public override bool Reveal(Player player)
         {
             if (!base.Reveal(player))
                 return false;
@@ -79,7 +88,6 @@ namespace Mooege.Core.GS.Map
 
             if (Mooege.Common.MPQ.MPQStorage.Data.Assets[Common.Types.SNO.SNOGroup.LevelArea].TryGetValue(this.Destination.DestLevelAreaSNO, out asset))
                 markerName = System.IO.Path.GetFileNameWithoutExtension(asset.FileName);
-            //else Logger.Warn("No asset for LevelArea {0}", this.Destination.DestLevelAreaSNO);
 
             player.InGameClient.SendMessage(new MapMarkerInfoMessage()
             {
@@ -88,7 +96,7 @@ namespace Mooege.Core.GS.Map
                 Field1 = new WorldPlace()
                 {
                     Position = this.Position,
-                    WorldID = this._world.DynamicID
+                    WorldID = this.World.DynamicID
                 },
                 Field2 = 0x00018FB0,  /* Marker_DungeonEntrance.tex */          // TODO Dont mark all portals as dungeon entrances... some may be exits too (although d3 does not necesarrily use the correct markers). Also i have found no hacky way to determine whether a portal is entrance or exit - farmy
                 m_snoStringList = 0x0000CB2E, /* LevelAreaNames.stl */          // TODO Dont use hardcoded numbers
@@ -107,19 +115,20 @@ namespace Mooege.Core.GS.Map
             return true;
         }
 
-        public override void OnTargeted(Mooege.Core.GS.Player.Player player, TargetMessage message)
+        public override void OnTargeted(Player player, TargetMessage message)
         {
-            World world = this.World.Game.GetWorld(this.Destination.WorldSNO);
+            var world = this.World.Game.GetWorld(this.Destination.WorldSNO);
+
             if (world == null)
             {
                 Logger.Warn("Portal's destination world does not exist (WorldSNO = {0})", this.Destination.WorldSNO);
                 return;
             }
 
-            Actor startingPoint = world.GetActorByTag(this.Destination.StartingPointActorTag);
+            var startingPoint = world.GetStartingPointById(this.Destination.StartingPointActorTag);
 
             if (startingPoint != null)
-                player.TransferTo(world, startingPoint.Position);
+                player.ChangeWorld(world, startingPoint);
             else
                 Logger.Warn("Portal's tagged starting point does not exist (Tag = {0})", this.Destination.StartingPointActorTag);
         }

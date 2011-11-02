@@ -16,7 +16,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-using Mooege.Core.GS.Common.Types.Math;
+using System.Collections.Generic;
+using Mooege.Common.MPQ.FileFormats.Types;
 using Mooege.Core.GS.Map;
 
 namespace Mooege.Core.GS.Actors.Implementations.Artisans
@@ -24,10 +25,10 @@ namespace Mooege.Core.GS.Actors.Implementations.Artisans
     [HandledSNO(56947 /* PT_Blacksmith.acr */)]
     public class Blacksmith : Artisan
     {
-        public Blacksmith(World world, int actorSNO, Vector3D position)
-            : base(world, actorSNO, position)
+        public Blacksmith(World world, int snoId, Dictionary<int, TagMapEntry> tags)
+            : base(world, snoId, tags)
         {
-        }
-        //TODO add all blacksmith functionality? /fasbat
+            // TODO add all blacksmith functionality? /fasbat
+        }        
     }
 }

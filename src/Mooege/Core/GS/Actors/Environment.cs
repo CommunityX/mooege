@@ -16,30 +16,23 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using Mooege.Common.Helpers;
-using Mooege.Core.GS.Common.Types.Math;
+using Mooege.Common.MPQ.FileFormats.Types;
 using Mooege.Core.GS.Map;
 
 namespace Mooege.Core.GS.Actors
 {
     public class Environment : Actor
     {
-        public override ActorType ActorType { get { return ActorType.Monster; } }
+        public override ActorType ActorType { get { return ActorType.Enviroment; } }
 
-        public Environment(World world, int actorSNO, Vector3D position)
-            : base(world, world.NewActorID)
+        public Environment(World world, int snoId, Dictionary<int, TagMapEntry> tags)
+            : base(world, snoId, tags)
         {
-            this.ActorSNO = actorSNO;
             this.Field2 = 16;
             this.Field3 = 0x0;
             this.Field7 = 0x00000001;
-            this.Field8 = this.ActorSNO;
-            this.Scale = 1.35f;
-            this.Position.Set(position);
+            this.Field8 = this.SNOId;
         }
     }
 }

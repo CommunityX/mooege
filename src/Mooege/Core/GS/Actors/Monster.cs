@@ -17,11 +17,13 @@
  */
 
 using System;
+using System.Collections.Generic;
 using Mooege.Common.Helpers;
+using Mooege.Common.MPQ.FileFormats.Types;
 using Mooege.Core.GS.Common.Types.Math;
 using Mooege.Core.GS.Map;
+using Mooege.Core.GS.Players;
 using Mooege.Net.GS.Message;
-using Mooege.Net.GS.Message.Definitions.Tick;
 using Mooege.Net.GS.Message.Definitions.World;
 using Mooege.Net.GS.Message.Fields;
 using Mooege.Net.GS.Message.Definitions.Animation;
@@ -34,8 +36,11 @@ namespace Mooege.Core.GS.Actors
     {
         public override ActorType ActorType { get { return ActorType.Monster; } }
 
-        public Monster(World world, int actorSNO, Vector3D position)
-            : base(world, actorSNO, position)
+        // TODO: Setter needs to update world. Also, this is probably an ACD field. /komiga
+        //public int AnimationSNO { get; set; }
+
+        public Monster(World world, int snoId, Dictionary<int, TagMapEntry> tags)
+            : base(world, snoId, tags)
         {
             this.Field2 = 0x8;
             this.GBHandle.Type = (int)GBHandleType.Monster; this.GBHandle.GBID = 1;
@@ -43,15 +48,15 @@ namespace Mooege.Core.GS.Actors
             this.Attributes[GameAttribute.Experience_Granted] = 125;
         }
 
-        public override void OnTargeted(Mooege.Core.GS.Player.Player player, TargetMessage message)
+        public override void OnTargeted(Player player, TargetMessage message)
         {
             this.Die(player);
         }
 
         // FIXME: Hardcoded hell. /komiga
-        public void Die(Mooege.Core.GS.Player.Player player)
+        public void Die(Player player)
         {
-            var killAni = new int[]{
+            /*var killAni = new int[]{
                     0x2cd7,
                     0x2cd4,
                     0x01b378,
@@ -68,11 +73,7 @@ namespace Mooege.Core.GS.Actors
                     0x2cd8,
                     0x2cda,
                     0x2cd9
-            };
-
-            player.UpdateExp(this.Attributes[GameAttribute.Experience_Granted]);
-            player.UpdateExpBonusData(player.GBHandle.Type, this.GBHandle.Type);
-
+            };*/
             this.World.BroadcastIfRevealed(new PlayEffectMessage()
             {
                 ActorId = this.DynamicID,
@@ -106,6 +107,9 @@ namespace Mooege.Core.GS.Actors
                 ActorID = this.DynamicID
             }, this);
 
+            player.UpdateExp(this.Attributes[GameAttribute.Experience_Granted]);
+            player.ExpBonusData.Update(player.GBHandle.Type, this.GBHandle.Type);
+
             this.World.BroadcastIfRevealed(new PlayAnimationMessage()
             {
                 ActorID = this.DynamicID,
@@ -116,7 +120,7 @@ namespace Mooege.Core.GS.Actors
                     new PlayAnimationMessageSpec()
                     {
                         Field0 = 0x2,
-                        Field1 = killAni[RandomHelper.Next(killAni.Length)],
+                        Field1 = Animset.GetRandomDeath(),//killAni[RandomHelper.Next(killAni.Length)],
                         Field2 = 0x0,
                         Field3 = 1f
                     }
@@ -136,31 +140,11 @@ namespace Mooege.Core.GS.Actors
             foreach (var msg in attribs.GetMessageList(this.DynamicID))
                 this.World.BroadcastIfRevealed(msg, this);
 
-            this.World.BroadcastIfRevealed(new PlayEffectMessage()
-            {
-                ActorId = this.DynamicID,
-                Effect = Effect.Unknown12
-            }, this);
-
-            this.World.BroadcastIfRevealed(new PlayEffectMessage()
-            {
-                ActorId = this.DynamicID,
-                Effect = Effect.Burned2
-            }, this);
-
-            this.World.BroadcastIfRevealed(new PlayHitEffectMessage()
-            {
-                ActorID = this.DynamicID,
-                HitDealer = player.DynamicID,
-                Field2 = 0x2,
-                Field3 = false,
-            }, this);
-
-            this.World.SpawnRandomDrop(player, this.Position);
+            this.World.SpawnRandomItemDrop(player, this.Position);
             this.World.SpawnGold(player, this.Position);
-            int rGlobes = RandomHelper.Next(1, 100);
-            if (rGlobes < 20)
-                this.World.SpawnGlobe(player, this.Position);
+            if (RandomHelper.Next(1, 100) < 20)
+                this.World.SpawnHealthGlobe(player, this.Position);
+
             this.Destroy();
         }
     }
