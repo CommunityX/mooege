@@ -205,5 +205,29 @@ namespace Mooege.Common.MPQ
 
             return @string;
         }
+        /// <summary>
+        /// Reads all available serialized sbytes.
+        /// </summary>
+        /// <param name="stream">The MPQFileStream to read from.</param>
+        /// <returns>The list of read sbytes.</returns>
+        public static List<sbyte> ReadSerializedBytes(this MpqFileStream stream)
+        {
+            int offset = stream.ReadValueS32(); // ofset for serialized data.
+            int size = stream.ReadValueS32(); // size of serialized data.
+
+            var items = new List<sbyte>(); // read-items if any.
+            if (size <= 0) return items;
+
+            var oldPos = stream.Position;
+            stream.Position = offset + 16; // offset is relative to actual sno data start, so add that 16 bytes file header to get actual position. /raist
+
+            while (stream.Position < offset + size + 16)
+            {
+                items.Add(stream.ReadValueS8());
+            }
+
+            stream.Position = oldPos;
+            return items;
+        }
     }
 }
